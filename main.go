@@ -1,14 +1,16 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"math/rand"
 	"os"
+	"strconv"
 )
 
 const (
-	VERSION = "Version 0.0.1"
+	VERSION = "Version 1.0.0"
 )
 
 type Flashcard struct {
@@ -52,24 +54,128 @@ func randList(length int) []int {
 	return list
 }
 
-func learningStageList(flashcards []Flashcard) []int {
-	list := make([]int, 5)
-	for i := 0; i < len(flashcards); i++ {
-		if flashcards[i].LearningStage < 5 {
-			list[flashcards[i].LearningStage]++
+func edit(set Set) Set {
+	scanner := bufio.NewScanner(os.Stdin)
+	for true {
+		for i := 0; i < len(set.Flashcards); i++ {
+			fmt.Println(i + 1)
+			fmt.Println("Question: ")
+			fmt.Println(set.Flashcards[i].Q)
+			fmt.Println("Answer: ")
+			fmt.Println(set.Flashcards[i].A)
+			fmt.Println("Help: ")
+			fmt.Println(set.Flashcards[i].Help)
+			fmt.Println()
+		}
+		fmt.Println("Select flashcard, 0 to add new, -1 to exit: ")
+		scanner.Scan()
+		selectionStr := scanner.Text()
+		selection, err := strconv.Atoi(selectionStr)
+		if err != nil {
+			fmt.Println("Invalid input. Please enter a valid integer.")
+			continue
+		}
+		if selection == -1 {
+			break
+		}
+		if selection == 0 {
+			var flashcard Flashcard
+			fmt.Println("Question: ")
+			scanner.Scan()
+			flashcard.Q = scanner.Text()
+			fmt.Println("Answer: ")
+			scanner.Scan()
+			flashcard.A = scanner.Text()
+			fmt.Println("Help: ")
+			scanner.Scan()
+			flashcard.Help = scanner.Text()
+			set.Flashcards = append(set.Flashcards, flashcard)
+		} else {
+			fmt.Println("Select action [E]dit/[d]elete: ")
+			scanner.Scan()
+			action := scanner.Text()
+			if action == "d" || action == "D" {
+				set.Flashcards = append(set.Flashcards[:selection-1], set.Flashcards[selection:]...)
+				continue
+			}
+			fmt.Println("Select field [q]uestion/[a]nswer/[h]elp/[Enter]all: ")
+			scanner.Scan()
+			field := scanner.Text()
+			if field == "q" || field == "Q" {
+				fmt.Println("Question: ")
+				scanner.Scan()
+				set.Flashcards[selection-1].Q = scanner.Text()
+			} else if field == "a" || field == "A" {
+				fmt.Println("Answer: ")
+				scanner.Scan()
+				set.Flashcards[selection-1].A = scanner.Text()
+			} else if field == "h" || field == "H" {
+				fmt.Println("Help: ")
+				scanner.Scan()
+				set.Flashcards[selection-1].Help = scanner.Text()
+			} else {
+				fmt.Println("Question: ")
+				scanner.Scan()
+				set.Flashcards[selection-1].Q = scanner.Text()
+				fmt.Println("Answer: ")
+				scanner.Scan()
+				set.Flashcards[selection-1].A = scanner.Text()
+				fmt.Println("Help: ")
+				scanner.Scan()
+				set.Flashcards[selection-1].Help = scanner.Text()
+			}
 		}
 	}
-	return list
+	return set
 }
 
-func Create() {
-	fmt.Println("Create")
+func Create(name string) {
+	if name[len(name)-5:] != ".ofmp" {
+		name += ".ofmp"
+	}
+	var set Set
+	set.Flashcards = []Flashcard{}
+	file, err := os.Create(name)
+	if err == nil {
+		defer file.Close()
+		encoder := json.NewEncoder(file)
+		encoder.Encode(set)
+		fmt.Println("Created " + name)
+	} else {
+		fmt.Println("Error creating " + name)
+		fmt.Println(err)
+	}
 }
 func Import() {
-	fmt.Println("Import")
+	fmt.Println("Import not yet implemented")
 }
-func Edit() {
-	fmt.Println("Edit")
+func Edit(name string) {
+	file, err := os.Open(name)
+	if err == nil {
+		var set Set
+		defer file.Close()
+		decoder := json.NewDecoder(file)
+		err = decoder.Decode(&set)
+		if err == nil {
+			set = edit(set)
+			file, err = os.Create(name)
+			if err == nil {
+				defer file.Close()
+				encoder := json.NewEncoder(file)
+				encoder.Encode(set)
+				fmt.Println("Edited " + name)
+			} else {
+				fmt.Println("Error creating " + name)
+				fmt.Println(err)
+			}
+		} else {
+			fmt.Println("Error decoding " + name)
+			fmt.Println(err)
+		}
+	} else {
+		fmt.Println("Error opening " + name)
+		fmt.Println(err)
+	}
 }
 func Read(name string) {
 	set, err := openFile(name)
@@ -77,9 +183,13 @@ func Read(name string) {
 		for i := 0; i < len(set.Flashcards); i++ {
 			fmt.Println(set.Flashcards[i].Q)
 			fmt.Println()
-			fmt.Println(set.Flashcards[i].Help)
-			fmt.Println()
+			if set.Flashcards[i].Help != "" {
+				fmt.Println(set.Flashcards[i].Help)
+				fmt.Println()
+			}
 			fmt.Println(set.Flashcards[i].A)
+			fmt.Println()
+			fmt.Println()
 		}
 	} else {
 		fmt.Println("Error opening " + name)
@@ -87,52 +197,89 @@ func Read(name string) {
 	}
 }
 func Learn(name string) {
+	scanner := bufio.NewScanner(os.Stdin)
 	fmt.Println("Select mode [W]rite/[v]iew: ")
-	var mode string
-	fmt.Scanln(&mode)
+	scanner.Scan()
+	mode := scanner.Text()
 	set, err := openFile(name)
 	if err == nil {
 		if mode == "v" || mode == "V" {
 			nums := randList(len(set.Flashcards))
 			for i := 0; i < len(set.Flashcards); i++ {
 				fmt.Println(set.Flashcards[nums[i]].Q)
-				fmt.Println("\nShow help? [y]/[N]")
-				var help string
-				fmt.Scanln(&help)
+				fmt.Println("\nShow help? [y]es/[N]o")
+				scanner.Scan()
+				help := scanner.Text()
 				if help == "y" || help == "Y" {
 					fmt.Println(set.Flashcards[nums[i]].Help)
 				}
 				fmt.Println("\nPress enter to show answer")
-				fmt.Scanln()
+				scanner.Scan()
 				fmt.Println(set.Flashcards[nums[i]].A)
 				fmt.Println("\nPress enter to continue")
-				fmt.Scanln()
+				scanner.Scan()
 			}
 		} else {
-			for i := 0; i < 5; i++ {
+			fmt.Println("Select learning stage [1]st/[2]nd/[3]rd/[4]th/[5]th: ")
+			scanner.Scan()
+			stageStr := scanner.Text()
+			stage, convErr := strconv.Atoi(stageStr)
+			if convErr == nil {
+				if stage < 1 || stage > 5 {
+					fmt.Println("Invalid stage")
+					return
+				}
+				var cards int
 				nums := randList(len(set.Flashcards))
-				for j := 0; j < len(set.Flashcards); j++ {
-					if set.Flashcards[nums[i]].LearningStage == i {
-						fmt.Println(set.Flashcards[nums[j]].Q)
-						fmt.Println("\nShow help? [y]/[N]")
-						var help string
-						fmt.Scanln(&help)
-						if help == "y" || help == "Y" {
-							fmt.Println(set.Flashcards[nums[j]].Help)
+				for i := 0; i < len(set.Flashcards); i++ {
+					helpUsed := false
+					if set.Flashcards[nums[i]].LearningStage == stage-1 {
+						cards++
+						fmt.Println("\n" + set.Flashcards[nums[i]].Q)
+						if set.Flashcards[nums[i]].Help != "" {
+							fmt.Println("\nShow help? [y]es/[N]o")
+							scanner.Scan()
+							help := scanner.Text()
+							if help == "y" || help == "Y" {
+								helpUsed = true
+								fmt.Println(set.Flashcards[nums[i]].Help)
+							}
 						}
 						fmt.Println("\nWrite answer and press enter")
-						var answer string
-						fmt.Scanln(&answer)
-						if answer == set.Flashcards[nums[j]].A {
-							set.Flashcards[nums[j]].LearningStage++
-							fmt.Println("Correct")
+						scanner.Scan()
+						answer := scanner.Text()
+						if answer == set.Flashcards[nums[i]].A {
+							if !helpUsed {
+								set.Flashcards[nums[i]].LearningStage++
+								fmt.Println("Correct")
+							} else {
+								fmt.Println("Correct, but you used help")
+							}
 						} else {
 							fmt.Println("Wrong")
+							fmt.Println("Correct answer: " + set.Flashcards[nums[i]].A)
 						}
 						fmt.Println("\nPress enter to continue")
-						fmt.Scanln()
+						scanner.Scan()
 					}
 				}
+				if cards == 0 {
+					fmt.Println("There are no cards left in this learning stage.")
+				} else {
+					fmt.Println("Congratulations! You went through all cards in this learning stage.")
+				}
+				file, openErr := os.OpenFile(name, os.O_WRONLY, 0644)
+				if openErr == nil {
+					defer file.Close()
+					encoder := json.NewEncoder(file)
+					encoder.Encode(set)
+					fmt.Println("Saved " + name)
+				} else {
+					fmt.Println("Error saving " + name)
+					fmt.Println(err)
+				}
+			} else {
+				fmt.Println("Invalid stage")
 			}
 		}
 	} else {
@@ -155,9 +302,18 @@ func Reset(name string) {
 		for i := 0; i < len(set.Flashcards); i++ {
 			set.Flashcards[i].LearningStage = 0
 		}
-		fmt.Println("Reset " + name)
+		file, openErr := os.OpenFile(name, os.O_WRONLY, 0644)
+		if openErr == nil {
+			defer file.Close()
+			encoder := json.NewEncoder(file)
+			encoder.Encode(set)
+			fmt.Println("Saved " + name)
+		} else {
+			fmt.Println("Error saving " + name)
+			fmt.Println(err)
+		}
 	} else {
-		fmt.Println("Error resetting " + name)
+		fmt.Println("Error opening " + name)
 		fmt.Println(err)
 	}
 }
@@ -208,11 +364,19 @@ func main() {
 	}
 	switch os.Args[1] {
 	case "-c":
-		Create()
+		if len(os.Args) < 3 {
+			fmt.Println("No file specified\nUse '-h' for help")
+			return
+		}
+		Create(os.Args[2])
 	case "-i":
 		Import()
 	case "-e":
-		Edit()
+		if len(os.Args) < 3 {
+			fmt.Println("No file specified\nUse '-h' for help")
+			return
+		}
+		Edit(os.Args[2])
 	case "-r":
 		if len(os.Args) < 3 {
 			fmt.Println("No file specified\nUse '-h' for help")
