@@ -207,11 +207,13 @@ func Learn(name string) {
 			nums := randList(len(set.Flashcards))
 			for i := 0; i < len(set.Flashcards); i++ {
 				fmt.Println(set.Flashcards[nums[i]].Q)
-				fmt.Println("\nShow help? [y]es/[N]o")
-				scanner.Scan()
-				help := scanner.Text()
-				if help == "y" || help == "Y" {
-					fmt.Println(set.Flashcards[nums[i]].Help)
+				if set.Flashcards[nums[i]].Help != "" {
+					fmt.Println("\nShow help? [y]es/[N]o")
+					scanner.Scan()
+					help := scanner.Text()
+					if help == "y" || help == "Y" {
+						fmt.Println(set.Flashcards[nums[i]].Help)
+					}
 				}
 				fmt.Println("\nPress enter to show answer")
 				scanner.Scan()
