@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -129,6 +130,35 @@ func edit(set Set) Set {
 	return set
 }
 
+func checkAnswer(answer string, correct string) bool {
+	answer = strings.ReplaceAll(strings.TrimSpace(answer), " ", "")
+	correct = strings.ReplaceAll(strings.TrimSpace(correct), " ", "")
+	if answer == correct {
+		return true
+	}
+	if strings.Contains(correct, "(") && strings.Contains(correct, ")") {
+		correctWithoutBrackets := strings.Split(correct, "(")[0] + strings.Split(correct, ")")[1]
+		if answer == correctWithoutBrackets {
+			return true
+		}
+	}
+	if strings.Contains(correct, "/") {
+		for _, correctAnswer := range strings.Split(correct, "/") {
+			if answer == correctAnswer {
+				return true
+			}
+		}
+	}
+	if strings.Contains(correct, "|") {
+		for _, correctAnswer := range strings.Split(correct, "|") {
+			if answer == correctAnswer {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func Create(name string) {
 	if name[len(name)-5:] != ".ofmp" {
 		name += ".ofmp"
@@ -231,6 +261,15 @@ func Learn(name string) {
 					fmt.Println("Invalid stage")
 					return
 				}
+				var fullBool bool
+				fmt.Println("Full answers? [y]es/[N]o")
+				scanner.Scan()
+				full := scanner.Text()
+				if full == "y" || full == "Y" {
+					fullBool = true
+				} else {
+					fullBool = false
+				}
 				var cards int
 				nums := randList(len(set.Flashcards))
 				for i := 0; i < len(set.Flashcards); i++ {
@@ -256,6 +295,15 @@ func Learn(name string) {
 								fmt.Println("Correct")
 							} else {
 								fmt.Println("Correct, but you used help")
+							}
+						} else if checkAnswer(answer, set.Flashcards[nums[i]].A) && !fullBool {
+							if !helpUsed {
+								set.Flashcards[nums[i]].LearningStage++
+								fmt.Println("Correct")
+								fmt.Println("Full answer: " + set.Flashcards[nums[i]].A)
+							} else {
+								fmt.Println("Correct, but you used help")
+								fmt.Println("Full answer: " + set.Flashcards[nums[i]].A)
 							}
 						} else {
 							fmt.Println("Wrong")
